@@ -1,224 +1,214 @@
 # Microservicios con Spring Boot y OpenFeign
 
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-brightgreen?logo=springboot&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.13-brightgreen?logo=springboot&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?logo=mysql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![OpenFeign](https://img.shields.io/badge/OpenFeign-Spring_Cloud-6DB33F?logo=spring&logoColor=white)
+![OpenFeign](https://img.shields.io/badge/OpenFeign-Spring_Cloud_2025.0.0-6DB33F?logo=spring&logoColor=white)
 
-Sistema de dos microservicios construido con Spring Boot que demuestra la comunicación entre servicios mediante **OpenFeign**, persistencia con **JPA/Hibernate**, uso de **DTOs** para desacoplar la capa de presentación de las entidades internas, e infraestructura contenerizada con **Docker Compose**.
+Proyecto educativo compuesto por dos aplicaciones Spring Boot independientes. El servicio consumidor expone una API REST y delega las operaciones al servicio proveedor mediante **Spring Cloud OpenFeign**. El proveedor implementa la lógica de negocio y persiste clientes, productos y compras en **MySQL** mediante **Spring Data JPA**.
 
----
+## Contenido
+
+- [Arquitectura](#arquitectura)
+- [Tecnologías](#tecnologías)
+- [Estructura](#estructura)
+- [Modelo de datos](#modelo-de-datos)
+- [DTO](#dto)
+- [Endpoints](#endpoints)
+- [Primeros pasos](#primeros-pasos)
+- [Pruebas](#pruebas)
+- [Consideraciones de la versión actual](#consideraciones-de-la-versión-actual)
 
 ## Arquitectura
 
+```text
+Cliente HTTP
+    |
+    v
+ms-openfeign-client (:8081)
+    |
+    | OpenFeign
+    v
+ms-products-api (:8080)
+    |
+    | Spring Data JPA / JDBC
+    v
+MySQL 8 (:3306)
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Cliente (HTTP)                       │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-              ┌─────────▼─────────────┐
-              │  ms-openfeign-client  │  :8080
-              │  (Servicio Consumidor)│
-              │  Spring Boot + Feign  │
-              └─────────┬─────────────┘
-                        │  OpenFeign (HTTP)
-              ┌─────────▼──────────┐
-              │   ms-products-api  │  :8081
-              │  (Proveedor + BD)  │
-              │  Spring Boot + JPA │
-              └─────────┬──────────┘
-                        │  JDBC
-              ┌─────────▼──────────┐
-              │      MySQL 8.0     │  :3306
-              │  (Volumen Docker)  │
-              └────────────────────┘
-```
-
-### Descripción de los microservicios
 
 | Servicio | Puerto | Responsabilidad |
-|---|---|---|
-| **ms-openfeign-client** | `8080` | Consumidor — expone una API REST unificada y delega todas las llamadas a ms-products-api mediante OpenFeign |
-| **ms-products-api** | `8081` | Proveedor — gestiona Clientes, Productos y Compras con operaciones CRUD completas respaldadas por MySQL; expone DTOs en lugar de entidades JPA para Clientes y Compras |
+|---|---:|---|
+| `ms-openfeign-client` | `8081` | Recibe las solicitudes externas y las delega al proveedor mediante OpenFeign. No accede a la base de datos. |
+| `ms-products-api` | `8080` | Ejecuta la lógica de negocio y accede a MySQL mediante Spring Data JPA. |
+| MySQL | `3306` | Almacena clientes, productos, compras y sus asociaciones. |
 
----
+El consumidor obtiene la URL del proveedor desde su `application.yml`:
+
+```yaml
+microservicio:
+  url: http://localhost:8080
+```
 
 ## Tecnologías
 
 | Tecnología | Versión | Propósito |
 |---|---|---|
-| Java | 21 | Lenguaje |
-| Spring Boot | 3.5 | Framework de aplicación |
-| Spring Cloud OpenFeign | 2025.0.0 | Cliente HTTP declarativo |
-| Spring Data JPA | — | ORM / capa de base de datos |
-| Hibernate | — | Implementación de JPA |
+| Java | 21 | Lenguaje del backend |
+| Spring Boot | 3.5.13 | Framework de aplicación |
+| Spring Cloud | 2025.0.0 | Gestión de dependencias de OpenFeign |
+| Spring Cloud OpenFeign | Administrada por Spring Cloud | Comunicación entre servicios |
+| Spring Data JPA / Hibernate | Administrada por Spring Boot | Persistencia y ORM |
 | MySQL | 8.0 | Base de datos relacional |
-| Lombok | — | Reducción de código repetitivo |
-| JUnit 5 + Mockito | — | Pruebas unitarias |
-| Docker y Docker Compose | — | Infraestructura |
+| Lombok | Administrada por Spring Boot | Reducción de código repetitivo |
+| JUnit 5 y Mockito | Spring Boot Test | Pruebas unitarias |
+| Docker Compose | Compose specification | Ejecución local de MySQL |
 
----
+## Estructura
 
-## Estructura del proyecto
-
-```
-demo-microservicios/
-├── ms-openfeign-client/              # Microservicio consumidor (puerto 8080)
+```text
+microservicios_springboot/
+├── ms-openfeign-client/              # Consumidor, puerto 8081
 │   └── src/
 │       ├── main/java/com/java/
-│       │   ├── client/feign/         # Interfaces del cliente Feign
+│       │   ├── client/feign/         # Interfaces OpenFeign
 │       │   ├── config/               # Configuración CORS
-│       │   ├── controller/           # Controladores REST
-│       │   ├── model/                # Modelos espejo de los DTOs del proveedor
-│       │   └── service/              # Capa de lógica de negocio
-│       └── test/java/com/java/
-│           └── service/              # Pruebas unitarias (Mockito)
-├── ms-products-api/                  # Microservicio proveedor (puerto 8081)
+│       │   ├── controller/           # API pública del consumidor
+│       │   ├── model/                # Modelos para serialización HTTP
+│       │   └── service/              # Delegación hacia OpenFeign
+│       └── test/java/com/java/service/
+├── ms-products-api/                  # Proveedor, puerto 8080
 │   └── src/
 │       ├── main/java/com/bd/
-│       │   ├── config/               # Configuración de Jackson / Hibernate
-│       │   ├── controller/           # Controladores REST
-│       │   ├── dto/                  # DTOs de entrada y salida (ClientDTO, PurchaseDTO)
+│       │   ├── config/               # Configuración Jackson/Hibernate
+│       │   ├── controller/           # API del proveedor
+│       │   ├── dto/                  # ClientDTO y PurchaseDTO
 │       │   ├── exception/            # Manejo global de excepciones
-│       │   ├── model/                # Entidades JPA (no expuestas directamente)
-│       │   ├── repository/           # Repositorios de Spring Data con consultas JPQL
-│       │   └── service/              # Lógica de negocio y conversión entidad ↔ DTO
-│       └── test/java/com/bd/
-│           └── service/              # Pruebas unitarias (Mockito)
-├── docker-compose.yml                # Configuración del contenedor MySQL
-├── .env.example                      # Plantilla de variables de entorno
-└── mysql_query.sql                   # Scripts DDL de base de datos
+│       │   ├── model/                # Entidades JPA
+│       │   ├── repository/           # Repositorios Spring Data JPA
+│       │   └── service/              # Lógica de negocio y conversión DTO
+│       └── test/java/com/bd/service/
+├── docker-compose.yml                # Contenedor MySQL
+├── mysql_query.sql                   # Creación de base de datos y tablas
+├── .env.example                      # Plantilla de configuración de Docker
+└── Readme.md
 ```
 
----
+## Modelo de datos
 
-## DTOs en ms-products-api
-
-`ms-products-api` utiliza **Data Transfer Objects (DTOs)** como contrato único de entrada y salida en sus endpoints, evitando exponer las entidades JPA y sus relaciones internas directamente en las respuestas HTTP.
-
-> **Productos** es el único recurso que sigue usando la entidad directamente, ya que no tiene relaciones bidireccionales que puedan causar problemas de serialización.
-
-### ClientDTO — `/api/clientes`
-
-El mismo `ClientDTO` se usa tanto para recibir el cuerpo de la petición (`@RequestBody`) como para devolver la respuesta. El campo `purchases` se ignora en la escritura gracias a `@JsonProperty(access = READ_ONLY)`.
-
-| Campo | Tipo | Entrada | Salida |
-|---|---|---|---|
-| `idClient` | `Integer` | — | ✅ ID generado por la BD |
-| `name` | `String` | ✅ | ✅ |
-| `email` | `String` | ✅ | ✅ |
-| `phone` | `String` | ✅ | ✅ |
-| `purchases` | `List<PurchaseDTO>` | ❌ ignorado | ✅ compras del cliente |
-
-### PurchaseDTO — `/api/compras`
-
-El mismo `PurchaseDTO` se usa para entrada y salida. Al crear o actualizar una compra, se leen `idClient` y `products`; los campos `idPurchase`, `clientName` y `quantity` se calculan en el servicio y se devuelven en la respuesta.
-
-| Campo | Tipo | Entrada | Salida |
-|---|---|---|---|
-| `idPurchase` | `Integer` | — | ✅ ID generado por la BD |
-| `idClient` | `Integer` | ✅ ID del cliente | ✅ |
-| `clientName` | `String` | — | ✅ nombre del cliente |
-| `products` | `List<Product>` | ✅ solo se necesita `id` | ✅ objetos completos |
-| `quantity` | `int` | — | ✅ calculado automáticamente |
-
-### Mapeo entidad → DTO (capa de servicio)
-
-La conversión se realiza en `ClientService` y `PurchaseService` mediante métodos `convertClientToDto` / `convertPurchaseToDto`, sin librerías externas de mapeo.
-
-```
-Client (entidad)            →  ClientDTO
-  id          (Integer)     →    idClient
-  name        (String)      →    name
-  email       (String)      →    email
-  phoneNumber (String)      →    phone          ← nombre de campo diferente
-  purchases   (Set<Purchase>) →  purchases (List<PurchaseDTO>)
-
-Purchase (entidad)          →  PurchaseDTO
-  id          (Integer)     →    idPurchase     ← nombre de campo diferente
-  client.id   (Integer)     →    idClient       ← relación aplanada
-  client.name (String)      →    clientName     ← relación aplanada
-  products    (List)        →    products
-  quantity    (int)         →    quantity
+```text
+Client (1) ────────────── (N) Purchase
+                                  |
+                                  | @OneToMany + @JoinTable
+                                  v
+                               Product
 ```
 
----
+- Un cliente puede tener muchas compras.
+- Cada compra pertenece a un cliente.
+- `Purchase.products` está mapeado como una asociación unidireccional `@OneToMany` mediante la tabla `purchase_products`.
+- `product_order` conserva la posición de los productos y permite repetir un producto dentro de una compra.
+- La cantidad de una compra se calcula con el número de productos seleccionados.
+- Al crear una compra, el stock de cada producto disminuye una unidad.
+- Al actualizar una compra, primero se restaura el stock anterior y después se aplica la nueva lista.
+- Al eliminar una compra, se restaura el stock de sus productos.
 
-## Primeros pasos
+### Tablas
 
-### Requisitos previos
+| Tabla | Descripción |
+|---|---|
+| `clients` | Datos de clientes |
+| `products` | Catálogo y stock de productos |
+| `purchases` | Cliente y cantidad de cada compra |
+| `purchase_products` | Productos incluidos y orden dentro de cada compra |
 
-- Java 21+
-- Maven 3.9+
-- Docker Desktop
+Los nombres de columnas en español se mapean a campos Java en inglés:
 
-### 1. Clonar el repositorio
+| Columna | Campo Java |
+|---|---|
+| `nombre` | `name` |
+| `telefono` | `phoneNumber` |
+| `precio` | `price` |
+| `cantidad` | `quantity` |
 
-```bash
-git clone https://github.com/maubmz/demo-microservicios.git
-cd demo-microservicios
-```
+## DTO
 
-### 2. Configurar las variables de entorno
+El proveedor utiliza DTO para Clientes y Compras. Productos continúa usando directamente la entidad `Product`.
 
-```bash
-cp .env.example .env
-# Edita el archivo .env con los valores deseados
-```
+### `ClientDTO`
 
-Variables del archivo `.env`:
+| Campo | Tipo | Uso |
+|---|---|---|
+| `idClient` | `Integer` | Identificador devuelto por el proveedor |
+| `name` | `String` | Entrada y salida |
+| `email` | `String` | Entrada y salida |
+| `phone` | `String` | Entrada y salida |
+| `purchases` | `List<PurchaseDTO>` | Solo lectura mediante `@JsonProperty(READ_ONLY)` |
 
-```env
-MYSQL_ROOT_PASSWORD=contraseña_segura
-MYSQL_DATABASE=client_product
-CONTAINER_NAME=bd-openfeign
-```
+### `PurchaseDTO`
 
-### 3. Levantar la base de datos
+| Campo | Tipo | Uso actual |
+|---|---|---|
+| `idPurchase` | `Integer` | Se genera al guardar la compra |
+| `idClient` | `Integer` | Identifica al cliente de la compra |
+| `clientName` | `String` | Se obtiene de la entidad `Client` |
+| `products` | `List<Product>` | En la entrada basta con proporcionar el ID de cada producto |
+| `quantity` | `int` | Se calcula con `products.size()` |
 
-```bash
-docker compose up -d
-```
+`PurchaseDTO` no marca sus campos calculados como `READ_ONLY`; el servicio simplemente construye esos valores a partir de las entidades persistidas.
 
-La instancia de MySQL estará disponible en `localhost:3306`.
+## Endpoints
 
-### 4. Ejecutar los microservicios
+El consumidor y el proveedor no exponen las mismas rutas. El consumidor usa rutas en inglés y delega a las rutas en español del proveedor.
 
-Inicia primero **ms-products-api** (proveedor):
+### API del consumidor
 
-```bash
-cd ms-products-api
-./mvnw spring-boot:run
-```
+Base URL: `http://localhost:8081`
 
-Luego inicia **ms-openfeign-client** (consumidor):
-
-```bash
-cd ms-openfeign-client
-./mvnw spring-boot:run
-```
-
----
-
-## Endpoints de la API
-
-Todos los ejemplos apuntan a `ms-openfeign-client` en el puerto `8080`. También puedes llamar directamente a `ms-products-api` en el puerto `8081`; ambos servicios devuelven el mismo formato de respuesta.
-
-### Clientes
+#### Clientes
 
 | Método | Endpoint | Descripción |
 |---|---|---|
-| `GET` | `/api/clientes` | Obtener todos los clientes |
-| `GET` | `/api/clientes/{id}` | Obtener cliente por ID |
-| `POST` | `/api/clientes` | Crear un nuevo cliente |
-| `PUT` | `/api/clientes/{id}` | Actualizar cliente por ID |
-| `DELETE` | `/api/clientes/{id}` | Eliminar cliente por ID |
+| `GET` | `/client/allClients` | Obtener todos los clientes |
+| `GET` | `/client/{id}` | Obtener un cliente |
+| `POST` | `/client/create` | Crear un cliente |
+| `PUT` | `/client/update/{id}` | Actualizar un cliente |
+| `DELETE` | `/client/delete/{id}` | Eliminar un cliente |
 
-**Ejemplo para crear un cliente:**
+#### Productos
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `GET` | `/product/allProducts` | Obtener todos los productos |
+| `GET` | `/product/{id}` | Obtener un producto |
+| `POST` | `/product/create` | Crear un producto |
+| `PUT` | `/product/update/{id}` | Actualizar un producto |
+| `DELETE` | `/product/delete/{id}` | Eliminar un producto |
+
+#### Compras
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `GET` | `/purchase/allPurchases` | Obtener todas las compras |
+| `GET` | `/purchase/{id}` | Obtener una compra |
+| `POST` | `/purchase/create` | Crear una compra |
+| `PUT` | `/purchase/update/{id}` | Actualizar una compra |
+| `DELETE` | `/purchase/delete/{id}` | Eliminar una compra |
+
+### API del proveedor
+
+Base URL: `http://localhost:8080`
+
+| Recurso | GET todos | GET por ID | POST | PUT | DELETE |
+|---|---|---|---|---|---|
+| Clientes | `/api/clientes` | `/api/clientes/{id}` | `/api/clientes` | `/api/clientes/{id}` | `/api/clientes/{id}` |
+| Productos | `/api/productos` | `/api/productos/{id}` | `/api/productos` | `/api/productos/{id}` | `/api/productos/{id}` |
+| Compras | `/api/compras` | `/api/compras/{id}` | `/api/compras` | `/api/compras/{id}` | `/api/compras/{id}` |
+
+### Ejemplo: crear un cliente mediante el consumidor
 
 ```bash
-curl -X POST http://localhost:8080/api/clientes \
+curl -X POST http://localhost:8081/client/create \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Juan Pérez",
@@ -227,32 +217,10 @@ curl -X POST http://localhost:8080/api/clientes \
   }'
 ```
 
-**Respuesta:**
-
-```json
-{
-  "idClient": 1,
-  "name": "Juan Pérez",
-  "email": "juan@ejemplo.com",
-  "phone": "5551234567",
-  "purchases": []
-}
-```
-
-### Productos
-
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/api/productos` | Obtener todos los productos |
-| `GET` | `/api/productos/{id}` | Obtener producto por ID |
-| `POST` | `/api/productos` | Crear un nuevo producto |
-| `PUT` | `/api/productos/{id}` | Actualizar producto por ID |
-| `DELETE` | `/api/productos/{id}` | Eliminar producto por ID |
-
-**Ejemplo para crear un producto:**
+### Ejemplo: crear un producto mediante el consumidor
 
 ```bash
-curl -X POST http://localhost:8080/api/productos \
+curl -X POST http://localhost:8081/product/create \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Laptop",
@@ -261,79 +229,123 @@ curl -X POST http://localhost:8080/api/productos \
   }'
 ```
 
-**Respuesta:**
+### Ejemplo: crear una compra mediante el consumidor
 
-```json
-{
-  "id": 1,
-  "name": "Laptop",
-  "price": 1500.0,
-  "stock": 10
-}
-```
-
-### Compras
-
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/api/compras` | Obtener todas las compras |
-| `GET` | `/api/compras/{id}` | Obtener compra por ID |
-| `POST` | `/api/compras` | Crear una nueva compra |
-| `PUT` | `/api/compras/{id}` | Actualizar compra por ID |
-| `DELETE` | `/api/compras/{id}` | Eliminar compra por ID |
-
-**Ejemplo para crear una compra:**
+Primero deben existir el cliente y los productos referenciados:
 
 ```bash
-curl -X POST http://localhost:8080/api/compras \
+curl -X POST http://localhost:8081/purchase/create \
   -H "Content-Type: application/json" \
   -d '{
     "idClient": 1,
-    "products": [{ "id": 1 }]
+    "products": [
+      { "id": 1 }
+    ]
   }'
 ```
 
-**Respuesta:**
+El proveedor calcula `idPurchase`, `clientName` y `quantity`, y devuelve los productos con el stock actualizado.
 
-```json
-{
-  "idPurchase": 1,
-  "idClient": 1,
-  "clientName": "Juan Pérez",
-  "products": [
-    { "id": 1, "name": "Laptop", "price": 1500.0, "stock": 9 }
-  ],
-  "quantity": 1
-}
-```
+## Primeros pasos
 
-> **Nota:** `quantity` se calcula automáticamente a partir del número de productos enviados. El campo `clientName` y el stock actualizado de los productos son calculados por el servicio.
+### Requisitos
 
----
+- Git
+- Java 21
+- Maven 3.9 o posterior
+- Docker y Docker Compose
 
-## Ejecución de pruebas
+### 1. Clonar el repositorio
 
 ```bash
-# Pruebas para ms-openfeign-client
-cd ms-openfeign-client
-./mvnw test
-
-# Pruebas para ms-products-api
-cd ms-products-api
-./mvnw test
+git clone https://github.com/maubmz/microservicios_springboot.git
+cd microservicios_springboot
 ```
 
-Las pruebas utilizan **JUnit 5** y **Mockito** para testear la capa de servicio de forma aislada, sin requerir una base de datos activa ni otros servicios en ejecución.
+### 2. Configurar MySQL
 
----
+```bash
+cp .env.example .env
+```
 
-## Decisiones de diseño
+Edita `.env` y define valores propios:
 
-- **DTOs como contrato único de entrada y salida** — `ms-products-api` usa el mismo DTO para recibir peticiones y enviar respuestas en Clientes y Compras. Esto evita exponer las entidades JPA, previene referencias circulares y permite cambiar el modelo interno sin romper el contrato HTTP con los consumidores.
-- **Modelos espejo en el consumidor** — Los modelos de `ms-openfeign-client` (`Client`, `Purchase`) replican exactamente los campos de los DTOs del proveedor, garantizando que OpenFeign pueda deserializar correctamente las respuestas.
-- **OpenFeign vs RestTemplate** — Cliente HTTP declarativo que elimina código repetitivo, mejora la legibilidad e integra de forma nativa con Spring Cloud.
-- **Inyección por constructor** — Todas las dependencias se inyectan mediante constructor (sin `@Autowired` en campo) para mejorar la testeabilidad e inmutabilidad.
-- **Separación de responsabilidades** — El consumidor y el proveedor son aplicaciones Spring Boot independientes; cada una puede desplegarse y escalarse de forma autónoma.
-- **Configuración basada en variables de entorno** — Las credenciales de la base de datos y nombres de contenedor se externalizan mediante `.env` / variables de entorno Docker, manteniendo los secretos fuera del control de versiones.
-- **Carga diferida (Lazy Fetching)** — Las relaciones JPA utilizan `FetchType.LAZY` para evitar el problema N+1. Consultas JPQL con `JOIN FETCH` se usan explícitamente cuando se necesitan los datos relacionados.
-- **Configuración de Jackson/Hibernate** — Se registra el módulo `Hibernate6Module` para manejar correctamente las colecciones lazy de JPA durante la serialización JSON, evitando errores de inicialización.
+```env
+MYSQL_ROOT_PASSWORD=una_contraseña_segura
+MYSQL_DATABASE=client_product
+CONTAINER_NAME=bd-openfeign
+```
+
+Inicia el contenedor:
+
+```bash
+docker compose up -d
+```
+
+El contenedor crea la base indicada por `MYSQL_DATABASE`, pero `docker-compose.yml` no monta automáticamente `mysql_query.sql`. Inicializa las tablas con:
+
+```bash
+docker compose exec -T mysql sh -c 'mysql --force -uroot -p"$MYSQL_ROOT_PASSWORD"' < mysql_query.sql
+```
+
+`--force` permite que el script continúe si la base `client_product` ya fue creada por el contenedor.
+
+### 3. Ejecutar el proveedor
+
+El archivo `.env` es leído por Docker Compose, pero no se carga automáticamente en un proceso Spring Boot iniciado desde la terminal. Exporta la misma contraseña:
+
+```bash
+export MYSQL_ROOT_PASSWORD='una_contraseña_segura'
+cd ms-products-api
+mvn spring-boot:run
+```
+
+El proveedor se ejecutará en `http://localhost:8080`.
+
+También puedes configurar:
+
+```bash
+export DB_URL='jdbc:mysql://localhost:3306/client_product'
+export DB_USER='root'
+```
+
+### 4. Ejecutar el consumidor
+
+Desde otra terminal y a partir de la raíz del repositorio:
+
+```bash
+cd ms-openfeign-client
+mvn spring-boot:run
+```
+
+El consumidor se ejecutará en `http://localhost:8081`.
+
+## Pruebas
+
+Una vez actualizadas las pruebas señaladas en la siguiente sección, podrán ejecutarse con Maven:
+
+```bash
+cd ms-products-api
+mvn test
+
+cd ../ms-openfeign-client
+mvn test
+```
+
+Las clases bajo `src/test/java/.../service` usan JUnit 5 y Mockito; su objetivo es probar los servicios de manera aislada, sin iniciar MySQL ni el otro microservicio.
+
+## Consideraciones de la versión actual
+
+- Las pruebas unitarias no están sincronizadas con las clases de producción actuales:
+  - Las pruebas de `ms-openfeign-client` usan `getId()` y `setId()` para `Client` y `Purchase`, pero los modelos actuales exponen `idClient` e `idPurchase`.
+  - Las pruebas de `ms-products-api` invocan servicios con entidades `Client` y `Purchase`, mientras que los servicios actuales reciben y devuelven `ClientDTO` y `PurchaseDTO`.
+  - Las pruebas del proveedor usan `PurchasesRepository`, mientras que `PurchaseService` utiliza `PurchaseRepository`.
+- Existen dos repositorios casi duplicados: `PurchaseRepository` y `PurchasesRepository`. Conviene conservar solo el utilizado por la aplicación y actualizar las pruebas.
+- El árbol proporcionado contiene `.mvn/wrapper/maven-wrapper.properties`, pero no muestra `mvnw` ni `mvnw.cmd`; por eso las instrucciones usan Maven instalado (`mvn`).
+- `application-local.yml` y el valor predeterminado de `MYSQL_ROOT_PASSWORD` en `application.yml` contienen una contraseña. Elimina credenciales del repositorio y exige variables de entorno antes de publicar o desplegar.
+- `mysql_query.sql` usa `CREATE DATABASE client_product` sin `IF NOT EXISTS`; por eso el comando de inicialización utiliza la opción `--force`.
+- El nombre `deletePRoductById` en `ms-openfeign-client` contiene un error de mayúsculas. Funciona internamente porque controlador y servicio usan el mismo nombre, pero conviene renombrarlo a `deleteProductById`.
+
+## Autor
+
+**maubmz** — [GitHub](https://github.com/maubmz)
