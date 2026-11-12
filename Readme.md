@@ -1,4 +1,4 @@
-# Microservicios con Spring Boot y OpenFeign
+# Microservices with Spring Boot and OpenFeign
 
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.13-brightgreen?logo=springboot&logoColor=white)
@@ -6,24 +6,24 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![OpenFeign](https://img.shields.io/badge/OpenFeign-Spring_Cloud_2025.0.0-6DB33F?logo=spring&logoColor=white)
 
-Proyecto educativo compuesto por dos aplicaciones Spring Boot independientes. El servicio consumidor expone una API REST y delega las operaciones al servicio proveedor mediante **Spring Cloud OpenFeign**. El proveedor implementa la lógica de negocio y persiste clientes, productos y compras en **MySQL** mediante **Spring Data JPA**.
+Educational project composed of two independent Spring Boot applications. The consumer service exposes a REST API and delegates operations to the provider through **Spring Cloud OpenFeign**. The provider implements the business logic and persists clients, products, and purchases in **MySQL** with **Spring Data JPA**.
 
-## Contenido
+## Contents
 
-- [Arquitectura](#arquitectura)
-- [Tecnologías](#tecnologías)
-- [Estructura](#estructura)
-- [Modelo de datos](#modelo-de-datos)
-- [DTO](#dto)
-- [Endpoints](#endpoints)
-- [Primeros pasos](#primeros-pasos)
-- [Pruebas](#pruebas)
-- [Consideraciones de la versión actual](#consideraciones-de-la-versión-actual)
+- [Architecture](#architecture)
+- [Technology stack](#technology-stack)
+- [Project structure](#project-structure)
+- [Data model](#data-model)
+- [DTOs](#dtos)
+- [API reference](#api-reference)
+- [Getting started](#getting-started)
+- [Testing](#testing)
+- [Current implementation notes](#current-implementation-notes)
 
-## Arquitectura
+## Architecture
 
 ```text
-Cliente HTTP
+HTTP Client
     |
     v
 ms-openfeign-client (:8081)
@@ -37,64 +37,64 @@ ms-products-api (:8080)
 MySQL 8 (:3306)
 ```
 
-| Servicio | Puerto | Responsabilidad |
+| Service | Port | Responsibility |
 |---|---:|---|
-| `ms-openfeign-client` | `8081` | Recibe las solicitudes externas y las delega al proveedor mediante OpenFeign. No accede a la base de datos. |
-| `ms-products-api` | `8080` | Ejecuta la lógica de negocio y accede a MySQL mediante Spring Data JPA. |
-| MySQL | `3306` | Almacena clientes, productos, compras y sus asociaciones. |
+| `ms-openfeign-client` | `8081` | Receives external requests and delegates them to the provider through OpenFeign. It does not access the database. |
+| `ms-products-api` | `8080` | Executes business logic and accesses MySQL through Spring Data JPA. |
+| MySQL | `3306` | Stores clients, products, purchases, and their associations. |
 
-El consumidor obtiene la URL del proveedor desde su `application.yml`:
+The consumer reads the provider URL from its `application.yml`:
 
 ```yaml
 microservicio:
   url: http://localhost:8080
 ```
 
-## Tecnologías
+## Technology stack
 
-| Tecnología | Versión | Propósito |
+| Technology | Version | Purpose |
 |---|---|---|
-| Java | 21 | Lenguaje del backend |
-| Spring Boot | 3.5.13 | Framework de aplicación |
-| Spring Cloud | 2025.0.0 | Gestión de dependencias de OpenFeign |
-| Spring Cloud OpenFeign | Administrada por Spring Cloud | Comunicación entre servicios |
-| Spring Data JPA / Hibernate | Administrada por Spring Boot | Persistencia y ORM |
-| MySQL | 8.0 | Base de datos relacional |
-| Lombok | Administrada por Spring Boot | Reducción de código repetitivo |
-| JUnit 5 y Mockito | Spring Boot Test | Pruebas unitarias |
-| Docker Compose | Compose specification | Ejecución local de MySQL |
+| Java | 21 | Backend language |
+| Spring Boot | 3.5.13 | Application framework |
+| Spring Cloud | 2025.0.0 | OpenFeign dependency management |
+| Spring Cloud OpenFeign | Managed by Spring Cloud | Service-to-service communication |
+| Spring Data JPA / Hibernate | Managed by Spring Boot | Persistence and ORM |
+| MySQL | 8.0 | Relational database |
+| Lombok | Managed by Spring Boot | Boilerplate reduction |
+| JUnit 5 and Mockito | Spring Boot Test | Unit testing |
+| Docker Compose | Compose specification | Local MySQL infrastructure |
 
-## Estructura
+## Project structure
 
 ```text
 microservicios_springboot/
-├── ms-openfeign-client/              # Consumidor, puerto 8081
+├── ms-openfeign-client/              # Consumer — port 8081
 │   └── src/
 │       ├── main/java/com/java/
-│       │   ├── client/feign/         # Interfaces OpenFeign
-│       │   ├── config/               # Configuración CORS
-│       │   ├── controller/           # API pública del consumidor
-│       │   ├── model/                # Modelos para serialización HTTP
-│       │   └── service/              # Delegación hacia OpenFeign
+│       │   ├── client/feign/         # OpenFeign interfaces
+│       │   ├── config/               # CORS configuration
+│       │   ├── controller/           # Consumer REST API
+│       │   ├── model/                # HTTP serialization models
+│       │   └── service/              # OpenFeign delegation layer
 │       └── test/java/com/java/service/
-├── ms-products-api/                  # Proveedor, puerto 8080
+├── ms-products-api/                  # Provider — port 8080
 │   └── src/
 │       ├── main/java/com/bd/
-│       │   ├── config/               # Configuración Jackson/Hibernate
-│       │   ├── controller/           # API del proveedor
-│       │   ├── dto/                  # ClientDTO y PurchaseDTO
-│       │   ├── exception/            # Manejo global de excepciones
-│       │   ├── model/                # Entidades JPA
-│       │   ├── repository/           # Repositorios Spring Data JPA
-│       │   └── service/              # Lógica de negocio y conversión DTO
+│       │   ├── config/               # Jackson/Hibernate configuration
+│       │   ├── controller/           # Provider REST API
+│       │   ├── dto/                  # ClientDTO and PurchaseDTO
+│       │   ├── exception/            # Global exception handling
+│       │   ├── model/                # JPA entities
+│       │   ├── repository/           # Spring Data JPA repositories
+│       │   └── service/              # Business logic and DTO conversion
 │       └── test/java/com/bd/service/
-├── docker-compose.yml                # Contenedor MySQL
-├── mysql_query.sql                   # Creación de base de datos y tablas
-├── .env.example                      # Plantilla de configuración de Docker
+├── docker-compose.yml                # MySQL container
+├── mysql_query.sql                   # Database and table creation script
+├── .env.example                      # Docker environment template
 └── Readme.md
 ```
 
-## Modelo de datos
+## Data model
 
 ```text
 Client (1) ────────────── (N) Purchase
@@ -104,120 +104,120 @@ Client (1) ────────────── (N) Purchase
                                Product
 ```
 
-- Un cliente puede tener muchas compras.
-- Cada compra pertenece a un cliente.
-- `Purchase.products` está mapeado como una asociación unidireccional `@OneToMany` mediante la tabla `purchase_products`.
-- `product_order` conserva la posición de los productos y permite repetir un producto dentro de una compra.
-- La cantidad de una compra se calcula con el número de productos seleccionados.
-- Al crear una compra, el stock de cada producto disminuye una unidad.
-- Al actualizar una compra, primero se restaura el stock anterior y después se aplica la nueva lista.
-- Al eliminar una compra, se restaura el stock de sus productos.
+- One client can have many purchases.
+- Each purchase belongs to one client.
+- `Purchase.products` is mapped as a unidirectional `@OneToMany` association through `purchase_products`.
+- The `product_order` column preserves product order and allows the same product to appear more than once in a purchase.
+- Purchase quantity is calculated from the number of selected products.
+- Creating a purchase decreases each selected product's stock by one.
+- Updating a purchase restores the previous stock before applying the new product list.
+- Deleting a purchase restores the stock of its products.
 
-### Tablas
+### Tables
 
-| Tabla | Descripción |
+| Table | Description |
 |---|---|
-| `clients` | Datos de clientes |
-| `products` | Catálogo y stock de productos |
-| `purchases` | Cliente y cantidad de cada compra |
-| `purchase_products` | Productos incluidos y orden dentro de cada compra |
+| `clients` | Client data |
+| `products` | Product catalog and stock |
+| `purchases` | Client reference and purchase quantity |
+| `purchase_products` | Products and their order within each purchase |
 
-Los nombres de columnas en español se mapean a campos Java en inglés:
+Spanish database column names are mapped to English Java fields:
 
-| Columna | Campo Java |
+| Database column | Java field |
 |---|---|
 | `nombre` | `name` |
 | `telefono` | `phoneNumber` |
 | `precio` | `price` |
 | `cantidad` | `quantity` |
 
-## DTO
+## DTOs
 
-El proveedor utiliza DTO para Clientes y Compras. Productos continúa usando directamente la entidad `Product`.
+The provider uses DTOs for Clients and Purchases. Products continue to use the `Product` entity directly.
 
 ### `ClientDTO`
 
-| Campo | Tipo | Uso |
+| Field | Type | Usage |
 |---|---|---|
-| `idClient` | `Integer` | Identificador devuelto por el proveedor |
-| `name` | `String` | Entrada y salida |
-| `email` | `String` | Entrada y salida |
-| `phone` | `String` | Entrada y salida |
-| `purchases` | `List<PurchaseDTO>` | Solo lectura mediante `@JsonProperty(READ_ONLY)` |
+| `idClient` | `Integer` | Identifier returned by the provider |
+| `name` | `String` | Input and output |
+| `email` | `String` | Input and output |
+| `phone` | `String` | Input and output |
+| `purchases` | `List<PurchaseDTO>` | Read-only through `@JsonProperty(READ_ONLY)` |
 
 ### `PurchaseDTO`
 
-| Campo | Tipo | Uso actual |
+| Field | Type | Current usage |
 |---|---|---|
-| `idPurchase` | `Integer` | Se genera al guardar la compra |
-| `idClient` | `Integer` | Identifica al cliente de la compra |
-| `clientName` | `String` | Se obtiene de la entidad `Client` |
-| `products` | `List<Product>` | En la entrada basta con proporcionar el ID de cada producto |
-| `quantity` | `int` | Se calcula con `products.size()` |
+| `idPurchase` | `Integer` | Generated when the purchase is saved |
+| `idClient` | `Integer` | Identifies the client making the purchase |
+| `clientName` | `String` | Obtained from the `Client` entity |
+| `products` | `List<Product>` | Only each product ID is required in requests |
+| `quantity` | `int` | Calculated with `products.size()` |
 
-`PurchaseDTO` no marca sus campos calculados como `READ_ONLY`; el servicio simplemente construye esos valores a partir de las entidades persistidas.
+`PurchaseDTO` does not mark its calculated fields as `READ_ONLY`; the service builds those values from persisted entities instead.
 
-## Endpoints
+## API reference
 
-El consumidor y el proveedor no exponen las mismas rutas. El consumidor usa rutas en inglés y delega a las rutas en español del proveedor.
+The consumer and provider do not expose the same paths. The consumer uses English paths and delegates to the provider's Spanish paths.
 
-### API del consumidor
+### Consumer API
 
 Base URL: `http://localhost:8081`
 
-#### Clientes
+#### Clients
 
-| Método | Endpoint | Descripción |
+| Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/client/allClients` | Obtener todos los clientes |
-| `GET` | `/client/{id}` | Obtener un cliente |
-| `POST` | `/client/create` | Crear un cliente |
-| `PUT` | `/client/update/{id}` | Actualizar un cliente |
-| `DELETE` | `/client/delete/{id}` | Eliminar un cliente |
+| `GET` | `/client/allClients` | Get all clients |
+| `GET` | `/client/{id}` | Get a client |
+| `POST` | `/client/create` | Create a client |
+| `PUT` | `/client/update/{id}` | Update a client |
+| `DELETE` | `/client/delete/{id}` | Delete a client |
 
-#### Productos
+#### Products
 
-| Método | Endpoint | Descripción |
+| Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/product/allProducts` | Obtener todos los productos |
-| `GET` | `/product/{id}` | Obtener un producto |
-| `POST` | `/product/create` | Crear un producto |
-| `PUT` | `/product/update/{id}` | Actualizar un producto |
-| `DELETE` | `/product/delete/{id}` | Eliminar un producto |
+| `GET` | `/product/allProducts` | Get all products |
+| `GET` | `/product/{id}` | Get a product |
+| `POST` | `/product/create` | Create a product |
+| `PUT` | `/product/update/{id}` | Update a product |
+| `DELETE` | `/product/delete/{id}` | Delete a product |
 
-#### Compras
+#### Purchases
 
-| Método | Endpoint | Descripción |
+| Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/purchase/allPurchases` | Obtener todas las compras |
-| `GET` | `/purchase/{id}` | Obtener una compra |
-| `POST` | `/purchase/create` | Crear una compra |
-| `PUT` | `/purchase/update/{id}` | Actualizar una compra |
-| `DELETE` | `/purchase/delete/{id}` | Eliminar una compra |
+| `GET` | `/purchase/allPurchases` | Get all purchases |
+| `GET` | `/purchase/{id}` | Get a purchase |
+| `POST` | `/purchase/create` | Create a purchase |
+| `PUT` | `/purchase/update/{id}` | Update a purchase |
+| `DELETE` | `/purchase/delete/{id}` | Delete a purchase |
 
-### API del proveedor
+### Provider API
 
 Base URL: `http://localhost:8080`
 
-| Recurso | GET todos | GET por ID | POST | PUT | DELETE |
+| Resource | Get all | Get by ID | Create | Update | Delete |
 |---|---|---|---|---|---|
-| Clientes | `/api/clientes` | `/api/clientes/{id}` | `/api/clientes` | `/api/clientes/{id}` | `/api/clientes/{id}` |
-| Productos | `/api/productos` | `/api/productos/{id}` | `/api/productos` | `/api/productos/{id}` | `/api/productos/{id}` |
-| Compras | `/api/compras` | `/api/compras/{id}` | `/api/compras` | `/api/compras/{id}` | `/api/compras/{id}` |
+| Clients | `GET /api/clientes` | `GET /api/clientes/{id}` | `POST /api/clientes` | `PUT /api/clientes/{id}` | `DELETE /api/clientes/{id}` |
+| Products | `GET /api/productos` | `GET /api/productos/{id}` | `POST /api/productos` | `PUT /api/productos/{id}` | `DELETE /api/productos/{id}` |
+| Purchases | `GET /api/compras` | `GET /api/compras/{id}` | `POST /api/compras` | `PUT /api/compras/{id}` | `DELETE /api/compras/{id}` |
 
-### Ejemplo: crear un cliente mediante el consumidor
+### Create a client through the consumer
 
 ```bash
 curl -X POST http://localhost:8081/client/create \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Juan Pérez",
-    "email": "juan@ejemplo.com",
+    "name": "John Doe",
+    "email": "john@example.com",
     "phone": "5551234567"
   }'
 ```
 
-### Ejemplo: crear un producto mediante el consumidor
+### Create a product through the consumer
 
 ```bash
 curl -X POST http://localhost:8081/product/create \
@@ -229,9 +229,9 @@ curl -X POST http://localhost:8081/product/create \
   }'
 ```
 
-### Ejemplo: crear una compra mediante el consumidor
+### Create a purchase through the consumer
 
-Primero deben existir el cliente y los productos referenciados:
+The referenced client and products must already exist:
 
 ```bash
 curl -X POST http://localhost:8081/purchase/create \
@@ -244,85 +244,85 @@ curl -X POST http://localhost:8081/purchase/create \
   }'
 ```
 
-El proveedor calcula `idPurchase`, `clientName` y `quantity`, y devuelve los productos con el stock actualizado.
+The provider calculates `idPurchase`, `clientName`, and `quantity`, and returns the products with their updated stock.
 
-## Primeros pasos
+## Getting started
 
-### Requisitos
+### Prerequisites
 
 - Git
 - Java 21
-- Maven 3.9 o posterior
-- Docker y Docker Compose
+- Maven 3.9 or newer
+- Docker and Docker Compose
 
-### 1. Clonar el repositorio
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/maubmz/microservicios_springboot.git
 cd microservicios_springboot
 ```
 
-### 2. Configurar MySQL
+### 2. Configure MySQL
 
 ```bash
 cp .env.example .env
 ```
 
-Edita `.env` y define valores propios:
+Edit `.env` and provide your own values:
 
 ```env
-MYSQL_ROOT_PASSWORD=una_contraseña_segura
+MYSQL_ROOT_PASSWORD=a_secure_password
 MYSQL_DATABASE=client_product
 CONTAINER_NAME=bd-openfeign
 ```
 
-Inicia el contenedor:
+Start the container:
 
 ```bash
 docker compose up -d
 ```
 
-El contenedor crea la base indicada por `MYSQL_DATABASE`, pero `docker-compose.yml` no monta automáticamente `mysql_query.sql`. Inicializa las tablas con:
+The container creates the database configured by `MYSQL_DATABASE`, but `docker-compose.yml` does **not** automatically mount or execute `mysql_query.sql`. Initialize the tables with:
 
 ```bash
 docker compose exec -T mysql sh -c 'mysql --force -uroot -p"$MYSQL_ROOT_PASSWORD"' < mysql_query.sql
 ```
 
-`--force` permite que el script continúe si la base `client_product` ya fue creada por el contenedor.
+The `--force` option allows the script to continue if `client_product` was already created by the container.
 
-### 3. Ejecutar el proveedor
+### 3. Start the provider
 
-El archivo `.env` es leído por Docker Compose, pero no se carga automáticamente en un proceso Spring Boot iniciado desde la terminal. Exporta la misma contraseña:
+Docker Compose reads `.env`, but a separately started Spring Boot process does not load it automatically. Export the same password before starting the provider:
 
 ```bash
-export MYSQL_ROOT_PASSWORD='una_contraseña_segura'
+export MYSQL_ROOT_PASSWORD='a_secure_password'
 cd ms-products-api
 mvn spring-boot:run
 ```
 
-El proveedor se ejecutará en `http://localhost:8080`.
+The provider will run at `http://localhost:8080`.
 
-También puedes configurar:
+Optional datasource variables:
 
 ```bash
 export DB_URL='jdbc:mysql://localhost:3306/client_product'
 export DB_USER='root'
 ```
 
-### 4. Ejecutar el consumidor
+### 4. Start the consumer
 
-Desde otra terminal y a partir de la raíz del repositorio:
+From another terminal opened at the repository root:
 
 ```bash
 cd ms-openfeign-client
 mvn spring-boot:run
 ```
 
-El consumidor se ejecutará en `http://localhost:8081`.
+The consumer will run at `http://localhost:8081`.
 
-## Pruebas
+## Testing
 
-Una vez actualizadas las pruebas señaladas en la siguiente sección, podrán ejecutarse con Maven:
+After updating the tests described in the next section, run them with Maven:
 
 ```bash
 cd ms-products-api
@@ -332,20 +332,20 @@ cd ../ms-openfeign-client
 mvn test
 ```
 
-Las clases bajo `src/test/java/.../service` usan JUnit 5 y Mockito; su objetivo es probar los servicios de manera aislada, sin iniciar MySQL ni el otro microservicio.
+The classes under `src/test/java/.../service` use JUnit 5 and Mockito. Their purpose is to test the service layer in isolation without starting MySQL or the other microservice.
 
-## Consideraciones de la versión actual
+## Current implementation notes
 
-- Las pruebas unitarias no están sincronizadas con las clases de producción actuales:
-  - Las pruebas de `ms-openfeign-client` usan `getId()` y `setId()` para `Client` y `Purchase`, pero los modelos actuales exponen `idClient` e `idPurchase`.
-  - Las pruebas de `ms-products-api` invocan servicios con entidades `Client` y `Purchase`, mientras que los servicios actuales reciben y devuelven `ClientDTO` y `PurchaseDTO`.
-  - Las pruebas del proveedor usan `PurchasesRepository`, mientras que `PurchaseService` utiliza `PurchaseRepository`.
-- Existen dos repositorios casi duplicados: `PurchaseRepository` y `PurchasesRepository`. Conviene conservar solo el utilizado por la aplicación y actualizar las pruebas.
-- El árbol proporcionado contiene `.mvn/wrapper/maven-wrapper.properties`, pero no muestra `mvnw` ni `mvnw.cmd`; por eso las instrucciones usan Maven instalado (`mvn`).
-- `application-local.yml` y el valor predeterminado de `MYSQL_ROOT_PASSWORD` en `application.yml` contienen una contraseña. Elimina credenciales del repositorio y exige variables de entorno antes de publicar o desplegar.
-- `mysql_query.sql` usa `CREATE DATABASE client_product` sin `IF NOT EXISTS`; por eso el comando de inicialización utiliza la opción `--force`.
-- El nombre `deletePRoductById` en `ms-openfeign-client` contiene un error de mayúsculas. Funciona internamente porque controlador y servicio usan el mismo nombre, pero conviene renombrarlo a `deleteProductById`.
+- The unit tests are not synchronized with the current production classes:
+  - Tests in `ms-openfeign-client` use `getId()` and `setId()` for `Client` and `Purchase`, but the current models expose `idClient` and `idPurchase`.
+  - Tests in `ms-products-api` call services with `Client` and `Purchase` entities, while the current services receive and return `ClientDTO` and `PurchaseDTO`.
+  - Provider tests use `PurchasesRepository`, while `PurchaseService` uses `PurchaseRepository`.
+- The provider contains two nearly identical repositories: `PurchaseRepository` and `PurchasesRepository`. Keep the one used by the application and update the tests accordingly.
+- The provided tree contains `.mvn/wrapper/maven-wrapper.properties`, but it does not show `mvnw` or `mvnw.cmd`; the instructions therefore use the installed `mvn` command.
+- `application-local.yml` and the default value of `MYSQL_ROOT_PASSWORD` in `application.yml` contain a database password. Remove committed credentials and require environment variables before publishing or deploying the project.
+- `mysql_query.sql` uses `CREATE DATABASE client_product` without `IF NOT EXISTS`, so the initialization command uses `--force`.
+- The method name `deletePRoductById` in `ms-openfeign-client` contains a capitalization typo. It works internally because the controller and service use the same name, but it should be renamed to `deleteProductById`.
 
-## Autor
+## Author
 
 **maubmz** — [GitHub](https://github.com/maubmz)
